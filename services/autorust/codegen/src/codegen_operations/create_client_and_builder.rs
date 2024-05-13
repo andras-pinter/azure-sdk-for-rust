@@ -109,8 +109,8 @@ pub fn create_client(modules: &[String], endpoint: Option<&str>) -> Result<Token
                 Ok(response.token)
             }
 
-            pub(crate) fn endpoint(&self) -> &azure_core::Url {
-                &self.endpoint
+            pub(crate) fn endpoint(&self) -> String {
+                self.endpoint.to_string().trim_end_matches('/').to_string()
             }
             pub(crate) fn token_credential(&self) -> &dyn azure_core::auth::TokenCredential {
                 self.credential.as_ref()
