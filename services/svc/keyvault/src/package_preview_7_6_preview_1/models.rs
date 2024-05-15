@@ -1425,9 +1425,12 @@ pub struct KeyAttributes {
     #[doc = "Reflects the deletion recovery level currently in effect for keys in the current vault. If it contains 'Purgeable' the key can be permanently deleted by a privileged user; otherwise, only the system can purge the key, at the end of the retention interval."]
     #[serde(rename = "recoveryLevel", default, skip_serializing_if = "Option::is_none")]
     pub recovery_level: Option<key_attributes::RecoveryLevel>,
-    #[doc = "Indicates if the private key can be exported. Release policy must be provided when creating the 1st version of an exportable key."]
+    #[doc = "Indicates if the private key can be exported. Release policy must be provided when creating the first version of an exportable key."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exportable: Option<bool>,
+    #[doc = "The underlying HSM Platform."]
+    #[serde(rename = "hsmPlatform", default, skip_serializing_if = "Option::is_none")]
+    pub hsm_platform: Option<String>,
 }
 impl KeyAttributes {
     pub fn new() -> Self {
@@ -1526,7 +1529,7 @@ pub struct KeyCreateParameters {
     #[doc = "The key size in bits. For example: 2048, 3072, or 4096 for RSA."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_size: Option<i32>,
-    #[doc = "The public exponent for a RSA key. This applies only to keys created in a Managed HSM."]
+    #[doc = "The public exponent for a RSA key."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub public_exponent: Option<i32>,
     #[serde(
@@ -1930,7 +1933,7 @@ pub mod key_operations_parameters {
 #[doc = "Properties of the key pair backing a certificate."]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct KeyProperties {
-    #[doc = "Indicates if the private key can be exported. Release policy must be provided when creating the 1st version of an exportable key."]
+    #[doc = "Indicates if the private key can be exported. Release policy must be provided when creating the first version of an exportable key."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exportable: Option<bool>,
     #[doc = "The type of key pair to be used for the certificate."]
@@ -2451,7 +2454,7 @@ impl LifetimeActions {
 #[doc = "A condition to be satisfied for an action to be executed."]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct LifetimeActionsTrigger {
-    #[doc = "Time after creation to attempt to rotate. It only applies to rotate. It will be in ISO 8601 duration format. Example: 90 days : \"P90D\" "]
+    #[doc = "Time after creation to attempt to rotate. It only applies to rotate. It will be in ISO 8601 duration format. Example: 90 days : \"P90D\"  "]
     #[serde(rename = "timeAfterCreate", default, skip_serializing_if = "Option::is_none")]
     pub time_after_create: Option<String>,
     #[doc = "Time before expiry to attempt to rotate or notify. It will be in ISO 8601 duration format. Example: 90 days : \"P90D\""]
@@ -2551,6 +2554,36 @@ pub struct Permission {
     pub not_data_actions: Vec<DataAction>,
 }
 impl Permission {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct PreBackupOperationParameters {
+    #[doc = "Azure Blob storage container Uri"]
+    #[serde(rename = "storageResourceUri", default, skip_serializing_if = "Option::is_none")]
+    pub storage_resource_uri: Option<String>,
+    #[doc = "The SAS token pointing to an Azure Blob storage container"]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[doc = "Indicates which authentication method should be used. If set to true, Managed HSM will use the configured user-assigned managed identity to authenticate with Azure Storage. Otherwise, a SAS token has to be specified."]
+    #[serde(rename = "useManagedIdentity", default, skip_serializing_if = "Option::is_none")]
+    pub use_managed_identity: Option<bool>,
+}
+impl PreBackupOperationParameters {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct PreRestoreOperationParameters {
+    #[serde(rename = "sasTokenParameters", default, skip_serializing_if = "Option::is_none")]
+    pub sas_token_parameters: Option<SasTokenParameter>,
+    #[doc = "The Folder name of the blob where the previous successful full backup was stored"]
+    #[serde(rename = "folderToRestore", default, skip_serializing_if = "Option::is_none")]
+    pub folder_to_restore: Option<String>,
+}
+impl PreRestoreOperationParameters {
     pub fn new() -> Self {
         Self::default()
     }
@@ -2943,13 +2976,18 @@ pub struct SasTokenParameter {
     #[serde(rename = "storageResourceUri")]
     pub storage_resource_uri: String,
     #[doc = "The SAS token pointing to an Azure Blob storage container"]
-    pub token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[doc = "Indicates which authentication method should be used. If set to true, Managed HSM will use the configured user-assigned managed identity to authenticate with Azure Storage. Otherwise, a SAS token has to be specified."]
+    #[serde(rename = "useManagedIdentity", default, skip_serializing_if = "Option::is_none")]
+    pub use_managed_identity: Option<bool>,
 }
 impl SasTokenParameter {
-    pub fn new(storage_resource_uri: String, token: String) -> Self {
+    pub fn new(storage_resource_uri: String) -> Self {
         Self {
             storage_resource_uri,
-            token,
+            token: None,
+            use_managed_identity: None,
         }
     }
 }
@@ -3641,6 +3679,76 @@ impl SelectiveKeyRestoreOperationParameters {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Setting {
+    #[doc = "The account setting to be updated"]
+    pub name: String,
+    #[doc = "The value of the pool setting."]
+    pub value: String,
+    #[doc = "The type specifier of the value."]
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub type_: Option<setting::Type>,
+}
+impl Setting {
+    pub fn new(name: String, value: String) -> Self {
+        Self { name, value, type_: None }
+    }
+}
+pub mod setting {
+    use super::*;
+    #[doc = "The type specifier of the value."]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(remote = "Type")]
+    pub enum Type {
+        #[serde(rename = "boolean")]
+        Boolean,
+        #[serde(skip_deserializing)]
+        UnknownValue(String),
+    }
+    impl FromStr for Type {
+        type Err = value::Error;
+        fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+            Self::deserialize(s.into_deserializer())
+        }
+    }
+    impl<'de> Deserialize<'de> for Type {
+        fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s = String::deserialize(deserializer)?;
+            let deserialized = Self::from_str(&s).unwrap_or(Self::UnknownValue(s));
+            Ok(deserialized)
+        }
+    }
+    impl Serialize for Type {
+        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match self {
+                Self::Boolean => serializer.serialize_unit_variant("Type", 0u32, "boolean"),
+                Self::UnknownValue(s) => serializer.serialize_str(s.as_str()),
+            }
+        }
+    }
+}
+#[doc = "The settings list result."]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct SettingsListResult {
+    #[doc = "A response message containing a list of account settings with their associated value."]
+    #[serde(
+        default,
+        deserialize_with = "azure_core::util::deserialize_null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub settings: Vec<Setting>,
+}
+impl SettingsListResult {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 #[doc = "The storage account management attributes."]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct StorageAccountAttributes {
@@ -3942,6 +4050,17 @@ impl Trigger {
         Self::default()
     }
 }
+#[doc = "The update settings request object."]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UpdateSettingRequest {
+    #[doc = "The value of the pool setting."]
+    pub value: String,
+}
+impl UpdateSettingRequest {
+    pub fn new(value: String) -> Self {
+        Self { value }
+    }
+}
 #[doc = "Properties of the X509 component of a certificate."]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct X509CertificateProperties {
@@ -3958,7 +4077,7 @@ pub struct X509CertificateProperties {
     #[doc = "The subject alternate names of a X509 object."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sans: Option<SubjectAlternativeNames>,
-    #[doc = "List of key usages."]
+    #[doc = "Defines how the certificate's key may be used."]
     #[serde(
         default,
         deserialize_with = "azure_core::util::deserialize_null_as_default",

@@ -1428,6 +1428,9 @@ pub struct KeyAttributes {
     #[doc = "Indicates if the private key can be exported. Release policy must be provided when creating the first version of an exportable key."]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exportable: Option<bool>,
+    #[doc = "The underlying HSM Platform."]
+    #[serde(rename = "hsmPlatform", default, skip_serializing_if = "Option::is_none")]
+    pub hsm_platform: Option<String>,
 }
 impl KeyAttributes {
     pub fn new() -> Self {
@@ -2943,13 +2946,18 @@ pub struct SasTokenParameter {
     #[serde(rename = "storageResourceUri")]
     pub storage_resource_uri: String,
     #[doc = "The SAS token pointing to an Azure Blob storage container"]
-    pub token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[doc = "Indicates which authentication method should be used. If set to true, Managed HSM will use the configured user-assigned managed identity to authenticate with Azure Storage. Otherwise, a SAS token has to be specified."]
+    #[serde(rename = "useManagedIdentity", default, skip_serializing_if = "Option::is_none")]
+    pub use_managed_identity: Option<bool>,
 }
 impl SasTokenParameter {
-    pub fn new(storage_resource_uri: String, token: String) -> Self {
+    pub fn new(storage_resource_uri: String) -> Self {
         Self {
             storage_resource_uri,
-            token,
+            token: None,
+            use_managed_identity: None,
         }
     }
 }
